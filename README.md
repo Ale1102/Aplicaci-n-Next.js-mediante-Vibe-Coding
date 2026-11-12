@@ -2,7 +2,43 @@
 
 Aplicación web bancaria de demostración construida con **Next.js 16 (App Router)**, **TypeScript** y **Tailwind CSS v4**, desarrollada con la metodología de **Vibe Coding** (desarrollo iterativo guiado por IA).
 
+**Demo en producción:** [https://aplicaci-n-next-js-mediante-vibe-co-three.vercel.app](https://aplicaci-n-next-js-mediante-vibe-co-three.vercel.app)
+**Documentación de la API (Swagger):** [/docs](https://aplicaci-n-next-js-mediante-vibe-co-three.vercel.app/docs)
+
 > Es un proyecto de demostración: los datos son ficticios y viven en memoria del servidor. No tiene autenticación ni base de datos todavía (ver [Hacia producción](#hacia-producción)).
+
+## ¿Qué hace esta aplicación?
+
+NovaBank Digital simula el panel de un banco en línea. Con un único cliente de ejemplo (con tres cuentas, tres tarjetas y tres metas de ahorro) puedes:
+
+- **Ver tu situación financiera:** el panel suma el saldo de todas tus cuentas en dólares (convierte la cuenta en euros con el tipo de cambio actual), calcula un rendimiento mensual estimado a partir del APY de cada cuenta y lista tus movimientos, con buscador y filtro por categoría. Un botón oculta los saldos.
+- **Enviar dinero:** eliges la cuenta de origen, el beneficiario, el monto y la categoría. El servidor valida los datos, descuenta el saldo y devuelve un comprobante con código de referencia (`NV-123456`). El movimiento aparece de inmediato en el panel.
+- **Gestionar tus tarjetas:** congelas o descongelas una tarjeta, ves su CVV solo cuando lo pides (y nunca si está congelada) y ajustas el límite mensual de gasto.
+- **Consultar divisas:** conviertes dólares a otras 9 monedas con tasas reales de una API externa. Si el proveedor no responde, la app usa tasas de respaldo y te avisa.
+- **Ahorrar para metas:** abonas dinero desde una cuenta en dólares a una meta (fondo de emergencia, viaje, inversión) y ves el avance en una barra de progreso.
+- **Probar la API:** `/docs` muestra todos los endpoints en Swagger y permite ejecutarlos desde el navegador.
+
+### Reglas que aplica el servidor
+
+| Operación | Reglas |
+| :--- | :--- |
+| Transferencia | Monto mayor a 0, máximo 2 decimales y hasta 100,000. Beneficiario de 2 a 80 caracteres. La cuenta debe existir y tener fondos suficientes. |
+| Abono a meta | Debe salir de una cuenta en USD con fondos y no puede superar lo que falta para la meta. |
+| Tarjeta | Límite entero entre 1,000 y 15,000, nunca menor al consumo del mes. El CVV no se entrega si la tarjeta está congelada. |
+
+Cada error responde con un código HTTP (400, 403, 404 o 422) y un mensaje claro.
+
+### Cómo está construida
+
+- **Server Components y Client Components:** el panel se renderiza en el servidor con los datos reales y le pasa la información a un componente de cliente que maneja la interactividad (`useState`).
+- **Route Handlers:** la API vive en `src/app/api/`. Las reglas de negocio están en `src/lib/bank.ts` y los datos en `src/lib/store.ts`.
+- **API externa:** `/api/fx` consulta `open.er-api.com` con caché de 5 minutos y un tiempo máximo de espera de 4 segundos.
+- **Estados de carga y error:** `loading.tsx`, `error.tsx` y mensajes en cada formulario.
+- **Diseño responsive:** menú colapsable en móvil y cuadrículas que se adaptan al tamaño de pantalla.
+
+### Importante al probar la demo en línea
+
+Los datos se guardan en la memoria del servidor, no en una base de datos. En Vercel cada instancia tiene su propia copia, así que una transferencia puede "desaparecer" al recargar o el saldo puede volver al valor inicial. Es una limitación conocida de la demo, no un error.
 
 ## Funcionalidades
 
@@ -130,7 +166,7 @@ Pendiente antes de publicar:
 - [ ] Limitar la tasa de peticiones (rate limiting) en los endpoints que modifican datos.
 - [ ] Definir una política CSP (hoy `/docs` carga Swagger UI desde un CDN).
 - [ ] Añadir pruebas automatizadas y un pipeline de CI (`typecheck` + `build`).
-- [ ] Elegir la plataforma de despliegue y configurar sus variables de entorno.
+- [x] Desplegar en Vercel (la demo ya está publicada; no requiere variables de entorno porque `FX_API_URL` y `NEXT_PUBLIC_BANK_NAME` tienen valores por defecto).
 
 ## Documentación del proceso
 
