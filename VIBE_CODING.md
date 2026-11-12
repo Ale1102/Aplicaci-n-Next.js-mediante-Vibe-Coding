@@ -44,6 +44,9 @@ Durante el ciclo de Vibe Coding se aplicó ingeniería de prompts incremental di
 ### Prompt 5 — Resiliencia UX: Estados de Carga (`loading.tsx`) y Errores (`error.tsx`)
 > *"Implementa `src/app/loading.tsx` con skeletons animados en Tailwind CSS que imiten la estructura de las tarjetas bancarias, y `src/app/error.tsx` como un Client Component (`'use client'`) que capture errores de ejecución en cualquier ruta y ofrezca el botón de recuperación mediante la función `reset()`."*
 
+### Prompt 6 — Revisión, endurecimiento y documentación de la API
+> *"Revisa todo el proyecto y aplica las mejoras necesarias para un funcionamiento óptimo antes de pensar en producción: que el dashboard y las demás páginas compartan los mismos datos, que tarjetas y metas pasen por la API, que las validaciones vivan en el servidor, y documenta todos los endpoints con OpenAPI para verlos en Swagger. Deja el README sin pasos de despliegue definitivos."*
+
 ---
 
 ## 3. Iteraciones Realizadas con la IA
@@ -53,6 +56,7 @@ Durante el ciclo de Vibe Coding se aplicó ingeniería de prompts incremental di
 | **Iteración 1: Hidratación de Fechas y Monedas** | La IA usó `toLocaleDateString()` sin parámetros fijos, lo que podía provocar diferencias de hidratación (*hydration mismatch*) entre servidor Node y navegador. | Se estandarizaron las fechas en formato ISO legible y el formateo monetario con `toLocaleString('en-US', { minimumFractionDigits: 2 })` determinista. |
 | **Iteración 2: Validación de Sobregiros en Transferencias** | El primer borrador del formulario de transferencias restaba el monto directamente en el cliente sin validar si superaba el saldo de la cuenta seleccionada. | Se movió la validación de saldo al Route Handler `POST /api/accounts` (retornando código HTTP `422 Unprocessable Entity` cuando `balance < numericAmount`) y se conectó el estado `errorMsg` en la interfaz. |
 | **Iteración 3: Resiliencia de la API Externa de Divisas** | Si la API externa `open.er-api.com` tardaba en responder o había bloqueo de red, la página `/divisas` rompía la vista. | Se añadió un bloque `try/catch` en `/api/fx/route.ts` con tasas de respaldo (`FALLBACK_RATES`) e indicador visual de la fuente de datos. |
+| **Iteración 5: Endurecimiento y Swagger** | Tarjetas y metas solo existían en el estado del navegador; las validaciones estaban en el cliente o repetidas. | Nuevos endpoints `/api/cards`, `/api/goals`, `/api/health`, validación en servidor y documentación OpenAPI visible en `/docs`. |
 | **Iteración 4: Navegación Responsive Móvil** | La barra de navegación horizontal desbordaba en pantallas menores a `768px`. | Se incorporó un menú colapsable móvil controlado con `useState` en `Navbar.tsx` y grillas adaptativas (`grid-cols-1 md:grid-cols-3`). |
 
 ---
@@ -63,8 +67,13 @@ Durante el ciclo de Vibe Coding se aplicó ingeniería de prompts incremental di
    - Se mantuvieron `layout.tsx` y `page.tsx` como **Server Components** para reducir el JavaScript enviado al cliente en la carga inicial y aprovechar el renderizado en servidor de Next.js 16.
    - Se aislaron las piezas con interactividad intensiva (`Navbar`, `DashboardClient`, `TransferenciasPage`, `TarjetasPage`, `DivisasPage`, `MetasPage`, `error.tsx`) con la directiva `'use client'`.
 2. **Proxy de API Externa mediante Route Handler (`/api/fx`)**:
-   - En lugar de exponer claves o hacer llamadas directas no controladas desde el navegador, el cliente consulta `/api/fx`, el cual lee `process.env.NEXT_PUBLIC_FX_API_URL` y `process.env.BANK_INTERNAL_API_SECRET` desde `.env.local` y aplica caché de servidor (`revalidate: 300`).
-3. **Separación Estricta de Tipos (`src/types/banking.ts`)**:
+   - En lugar de hacer llamadas directas no controladas desde el navegador, el cliente consulta `/api/fx`, que lee `FX_API_URL` (solo servidor) desde `.env.local`, aplica caché de servidor (`revalidate: 300`), un timeout de 4 s y tasas de respaldo con el indicador `fallback`.
+   - En la revisión de la fase 6 se eliminó `BANK_INTERNAL_API_SECRET`: se había documentado pero ningún código la usaba, así que daba una falsa sensación de seguridad.
+3. **Lógica de negocio centralizada (`src/lib/bank.ts`) y almacén compartido (`src/lib/store.ts`)**:
+   - Los Route Handlers solo parsean la petición y delegan; las reglas (montos, fondos, límites) viven en un único lugar y devuelven errores con formato uniforme `{ error, code, details? }`.
+   - Dashboard y APIs leen el mismo almacén, por lo que una transferencia se refleja en el panel.
+4. **Contrato de API documentado (`src/lib/openapi.ts`)**: la especificación OpenAPI se sirve en `/api/openapi` y se visualiza en `/docs` con Swagger UI.
+5. **Separación Estricta de Tipos (`src/types/banking.ts`)**:
    - Evita el uso de `any` y garantiza que los componentes y los Route Handlers compartan exactamente el mismo contrato de datos.
 
 ---
@@ -77,3 +86,7 @@ Durante el ciclo de Vibe Coding se aplicó ingeniería de prompts incremental di
 - **Desafío 2: Sincronización de saldo tras realizar una transferencia**
   - *Causa*: Al enviar una transferencia en `/transferencias`, la lista de cuentas debía reflejar inmediatamente el nuevo saldo descontado sin recargar toda la página.
   - *Solución guiada por IA*: El endpoint `POST /api/accounts` devuelve tanto la nueva transacción (`transaction`) como el arreglo actualizado de cuentas (`accounts`), permitiendo actualizar ambos estados locales (`setAccounts` y `setTransactions`) en una sola respuesta.
+- **Desafío 3: Inconsistencias detectadas en la revisión de la fase 6**
+  - *Causa*: El dashboard leía datos de ejemplo directamente y no veía las transferencias; el patrimonio ignoraba la cuenta en EUR; el rendimiento mensual estaba escrito a mano; el abono a metas topaba el monto sin descontar el exceso de la cuenta; el CVV viajaba siempre en el JSON de tarjetas.
+  - *Solución guiada por IA*: Almacén compartido, conversión a USD con las tasas de `/api/fx`, rendimiento calculado como Σ(saldo × APY / 12), rechazo con 422 de abonos que superan la meta y endpoint `/api/cards/{id}/reveal` para entregar el CVV solo bajo demanda y nunca con la tarjeta congelada.
+  - *Verificación*: se probaron los endpoints con casos válidos e inválidos (400, 403, 404, 422) y se comprobó que los saldos y la meta cambiaron como se esperaba.

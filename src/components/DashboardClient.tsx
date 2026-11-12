@@ -8,11 +8,16 @@ import Link from 'next/link';
 interface Props {
   initialAccounts: BankAccount[];
   initialTransactions: Transaction[];
+  /** Tasas por 1 USD (ej. EUR: 0.92) para consolidar cuentas en otras monedas */
+  rates: Record<string, number>;
+  ratesAreFallback: boolean;
 }
 
 export default function DashboardClient({
   initialAccounts,
   initialTransactions,
+  rates,
+  ratesAreFallback,
 }: Props) {
   const [hideBalances, setHideBalances] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,9 +32,18 @@ export default function DashboardClient({
     return matchesQuery && matchesCategory;
   });
 
-  const totalUsd = initialAccounts
-    .filter((a) => a.currency === 'USD')
-    .reduce((acc, item) => acc + item.balance, 0);
+  // Convierte cada saldo a USD (rates está expresado como unidades por 1 USD)
+  const toUsd = (acc: BankAccount) => acc.balance / (rates[acc.currency] || 1);
+
+  const totalUsd = initialAccounts.reduce((sum, acc) => sum + toUsd(acc), 0);
+
+  // Rendimiento mensual estimado = Σ (saldo en USD × APY / 12)
+  const monthlyYield = initialAccounts.reduce(
+    (sum, acc) => sum + (toUsd(acc) * acc.apy) / 100 / 12,
+    0
+  );
+  const avgApy = totalUsd > 0 ? (monthlyYield * 12 * 100) / totalUsd : 0;
+  const hasForeign = initialAccounts.some((a) => a.currency !== 'USD');
 
   return (
     <div className="space-y-8">
@@ -46,6 +60,8 @@ export default function DashboardClient({
                 onClick={() => setHideBalances(!hideBalances)}
                 className="rounded-lg border border-slate-700 bg-slate-800/70 p-1.5 text-slate-300 hover:text-white"
                 title="Mostrar u ocultar saldos"
+                aria-label={hideBalances ? 'Mostrar saldos' : 'Ocultar saldos'}
+                aria-pressed={hideBalances}
               >
                 {hideBalances ? (
                   <EyeOff className="h-4 w-4" />
@@ -62,10 +78,18 @@ export default function DashboardClient({
                   })}`}
             </h1>
             <p className="mt-2 text-sm text-slate-400">
-              Rendimiento acumulado este mes:{' '}
-              <span className="font-semibold text-emerald-400">+$342.18 USD</span>{' '}
-              (APY Promedio 4.12%)
+              Rendimiento mensual estimado:{' '}
+              <span className="font-semibold text-emerald-400">
+                +${monthlyYield.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+              </span>{' '}
+              (APY promedio {avgApy.toFixed(2)}%)
             </p>
+            {hasForeign && (
+              <p className="mt-1 text-[11px] text-slate-500">
+                Cuentas en otras monedas convertidas a USD
+                {ratesAreFallback ? ' con tasas de respaldo' : ' con tasas en vivo'}.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -140,6 +164,7 @@ export default function DashboardClient({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar comercio o referencia..."
+                aria-label="Buscar movimientos"
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none sm:w-64"
               />
             </div>
@@ -147,6 +172,7 @@ export default function DashboardClient({
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label="Filtrar por categoría"
               className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
             >
               <option value="Todas">Todas las categorías</option>

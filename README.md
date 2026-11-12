@@ -1,66 +1,137 @@
-# 🏦 NovaBank Digital — Plataforma Fintech en Next.js 16 (Vibe Coding)
+# NovaBank Digital
 
-Aplicación web bancaria moderna construida desde cero con **Next.js 16 (App Router)**, **TypeScript** y **Tailwind CSS**, desarrollada bajo la metodología de **Vibe Coding** (desarrollo iterativo guiado por IA).
+Aplicación web bancaria de demostración construida con **Next.js 16 (App Router)**, **TypeScript** y **Tailwind CSS v4**, desarrollada con la metodología de **Vibe Coding** (desarrollo iterativo guiado por IA).
 
----
+> Es un proyecto de demostración: los datos son ficticios y viven en memoria del servidor. No tiene autenticación ni base de datos todavía (ver [Hacia producción](#hacia-producción)).
 
-## ✨ Características Principales y Cumplimiento Técnico
+## Funcionalidades
 
-- **Next.js 16+ con App Router y TypeScript Estricto**: Arquitectura modular en `src/app/`.
-- **5 Rutas Funcionales Diferenciadas**:
-  1. `/` — **Dashboard Financiero** (Server Component + Client Component interactivo con modo privacidad de saldos y filtrado en vivo de movimientos).
-  2. `/transferencias` — **Centro de Transferencias UNI** (Formulario con `useState` y `useEffect` conectado a `POST /api/accounts` con validación de saldo y generación de referencia).
-  3. `/tarjetas` — **Bóveda de Tarjetas Digitales y Físicas** (Congelamiento instantáneo de tarjetas, visualización segura de CVV y ajuste dinámico de límite mensual).
-  4. `/divisas` — **Mercado FX & Conversor Multidivisa** (Consumo de API externa en tiempo real a través del Route Handler `GET /api/fx` con `useEffect`).
-  5. `/metas` — **Bóvedas de Ahorro Inteligente** (Seguimiento de metas con APY y abonos en tiempo real).
-- **Route Handlers Internos y Consumo de API Externa**:
-  - `GET / POST /api/accounts`: Gestión de cuentas y ejecución de transferencias.
-  - `GET /api/fx`: Consume `https://open.er-api.com/v6/latest/USD` parametrizado mediante variables de entorno.
-- **Manejo de Estados de Carga y Error**:
-  - `src/app/loading.tsx`: Skeleton UI automático durante transiciones asíncronas.
-  - `src/app/error.tsx`: Error Boundary interactivo con botón de reintento (`reset()`).
+| Ruta | Descripción |
+| :--- | :--- |
+| `/` | Panel financiero (Server Component + Client Component): patrimonio consolidado en USD, rendimiento estimado, modo privacidad y filtro de movimientos. |
+| `/transferencias` | Formulario de transferencias con validación y comprobante. Usa `POST /api/accounts`. |
+| `/tarjetas` | Congelar/descongelar, ver CVV bajo demanda y ajustar el límite mensual. Usa `/api/cards`. |
+| `/divisas` | Conversor y cotizaciones. Usa `GET /api/fx` (API externa con respaldo local). |
+| `/metas` | Bóvedas de ahorro con abonos desde una cuenta USD. Usa `/api/goals`. |
+| `/docs` | Documentación interactiva de la API (Swagger UI). |
 
----
+Además: `loading.tsx` (skeleton), `error.tsx` (error boundary con reintento) y `not-found.tsx`.
 
-## 🚀 Instrucciones de Instalación y Uso Local
+## Requisitos
 
-### 1. Clonar el repositorio e instalar dependencias
+- Node.js 20 o superior
+- npm
+
+## Instalación y uso local
+
 ```bash
-git clone https://github.com/TU_USUARIO/novabank-nextjs.git
-cd novabank-nextjs
 npm install
 ```
 
-### 2. Configurar las variables de entorno
-Copia el archivo `.env.example` hacia `.env.local`:
+Crea tu archivo de variables de entorno:
+
 ```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env.local
+
+# macOS / Linux
 cp .env.example .env.local
 ```
 
-Variables incluidas en `.env.example`:
-- `NEXT_PUBLIC_BANK_NAME`: Nombre visible de la entidad financiera.
-- `NEXT_PUBLIC_FX_API_URL`: Endpoint externo de tipos de cambio (`https://open.er-api.com/v6/latest/USD`).
-- `NEXT_PUBLIC_BASE_CURRENCY`: Moneda base (`USD`).
-- `BANK_INTERNAL_API_SECRET`: Clave privada del servidor para los Route Handlers.
+Inicia el servidor de desarrollo:
 
-### 3. Ejecutar el servidor de desarrollo
 ```bash
 npm run dev
 ```
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
----
+Abre [http://localhost:3000](http://localhost:3000). Si el puerto está ocupado, Next.js usará el siguiente disponible y lo indicará en la terminal.
 
-## 🌐 Despliegue en Producción (Vercel)
+### Scripts
 
-1. Sube este proyecto a un repositorio público en tu cuenta de **GitHub** (puedes usar el script `bash init-git-commits.sh` incluido para generar el historial de commits paso a paso automáticamente).
-2. Ingresa a [https://vercel.com/new](https://vercel.com/new) e importa tu repositorio `novabank-nextjs`.
-3. En la sección **Environment Variables** de Vercel, añade las variables definidas en `.env.example`.
-4. Haz clic en **Deploy**. Una vez publicado, reemplaza el siguiente enlace con tu URL de producción:
-   - 🔗 **URL de Producción (Vercel)**: `https://novabank-nextjs-demo.vercel.app` *(Reemplazar con tu enlace generado en Vercel)*
+| Comando | Qué hace |
+| :--- | :--- |
+| `npm run dev` | Servidor de desarrollo (Turbopack) |
+| `npm run build` | Compila para producción |
+| `npm run start` | Sirve la build de producción |
+| `npm run typecheck` | Verifica los tipos con TypeScript |
 
----
+## Variables de entorno
 
-## 📄 Documentación de Vibe Coding
+| Variable | Alcance | Descripción |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_BANK_NAME` | Cliente y servidor | Nombre visible de la entidad. |
+| `FX_API_URL` | Solo servidor | Endpoint de tipos de cambio. Por defecto `https://open.er-api.com/v6/latest/USD`. |
 
-Consulta el archivo [`VIBE_CODING.md`](./VIBE_CODING.md) incluido en la raíz del proyecto para revisar los prompts utilizados, las iteraciones realizadas con la IA, las decisiones de arquitectura y la resolución de problemas técnicos.
+`.env.local` no se sube al repositorio. Las variables con prefijo `NEXT_PUBLIC_` se exponen al navegador, por eso nunca deben contener secretos.
+
+## API y Swagger
+
+Con la app corriendo:
+
+- Swagger UI: [`/docs`](http://localhost:3000/docs)
+- Especificación OpenAPI 3.0 (JSON): [`/api/openapi`](http://localhost:3000/api/openapi)
+
+Swagger UI se carga desde un CDN (versión fija), por lo que `/docs` necesita conexión a internet. La especificación en sí se genera localmente.
+
+| Método | Endpoint | Descripción |
+| :--- | :--- | :--- |
+| GET | `/api/health` | Estado del servicio |
+| GET | `/api/accounts` | Cuentas y movimientos |
+| POST | `/api/accounts` | Ejecuta una transferencia |
+| GET | `/api/cards` | Lista tarjetas (sin CVV) |
+| PATCH | `/api/cards/{id}` | Congela/descongela o cambia el límite mensual |
+| GET | `/api/cards/{id}/reveal` | Devuelve el CVV (403 si la tarjeta está congelada) |
+| GET | `/api/goals` | Lista metas de ahorro |
+| POST | `/api/goals/{id}/deposit` | Abona a una meta desde una cuenta USD |
+| GET | `/api/fx` | Tipos de cambio respecto al USD |
+| GET | `/api/openapi` | Especificación OpenAPI |
+
+Todos los errores usan el mismo formato:
+
+```json
+{ "error": "Fondos insuficientes en la cuenta seleccionada.", "code": "INSUFFICIENT_FUNDS", "details": { "available": 100, "requested": 500 } }
+```
+
+Ejemplo:
+
+```bash
+curl -X POST http://localhost:3000/api/accounts \
+  -H "Content-Type: application/json" \
+  -d '{"fromAccountId":"acc-1","recipient":"Carlos Mendoza","amount":150.5,"category":"Servicios"}'
+```
+
+## Estructura del proyecto
+
+```
+src/
+├─ app/
+│  ├─ api/            Route Handlers (accounts, cards, goals, fx, health, openapi)
+│  ├─ docs/           Swagger UI
+│  ├─ divisas/ metas/ tarjetas/ transferencias/
+│  ├─ page.tsx        Dashboard (Server Component)
+│  └─ loading.tsx · error.tsx · not-found.tsx
+├─ components/        Navbar, DashboardClient
+├─ lib/
+│  ├─ bank.ts         Reglas de negocio y validaciones
+│  ├─ store.ts        Almacén en memoria compartido
+│  ├─ fx.ts           Cliente de la API de divisas (con respaldo)
+│  ├─ openapi.ts      Especificación OpenAPI
+│  ├─ http.ts · client.ts   Utilidades de API (servidor y cliente)
+│  └─ mock-data.ts    Datos iniciales
+└─ types/banking.ts   Interfaces compartidas
+```
+
+## Hacia producción
+
+Pendiente antes de publicar:
+
+- [ ] Reemplazar el almacén en memoria (`src/lib/store.ts`) por una base de datos. En plataformas serverless cada instancia tendría su propia copia de los datos.
+- [ ] Añadir autenticación y autorización a los endpoints.
+- [ ] Limitar la tasa de peticiones (rate limiting) en los endpoints que modifican datos.
+- [ ] Definir una política CSP (hoy `/docs` carga Swagger UI desde un CDN).
+- [ ] Añadir pruebas automatizadas y un pipeline de CI (`typecheck` + `build`).
+- [ ] Elegir la plataforma de despliegue y configurar sus variables de entorno.
+
+## Documentación del proceso
+
+Los prompts, iteraciones, decisiones técnicas y desafíos están en [`VIBE_CODING.md`](./VIBE_CODING.md).

@@ -8,6 +8,7 @@ import {
   CreditCard,
   Globe,
   PiggyBank,
+  BookOpen,
   ShieldCheck,
   Menu,
   X,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/tarjetas', label: 'Tarjetas', icon: CreditCard },
   { href: '/divisas', label: 'Divisas & FX API', icon: Globe },
   { href: '/metas', label: 'Metas de Ahorro', icon: PiggyBank },
+  { href: '/docs', label: 'API Docs', icon: BookOpen },
 ];
 
 export default function Navbar() {
@@ -51,6 +53,7 @@ export default function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40'
@@ -67,7 +70,7 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            Protección Biométrica Activa
+            Entorno de demostración
           </span>
         </div>
 
@@ -75,7 +78,8 @@ export default function Navbar() {
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
           className="rounded-xl border border-slate-800 p-2 text-slate-300 md:hidden"
-          aria-label="Abrir menú de navegación"
+          aria-label={mobileOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
+          aria-expanded={mobileOpen}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>

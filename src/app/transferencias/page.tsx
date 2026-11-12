@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { BankAccount, Transaction } from '@/types/banking';
+import { apiFetch, errorMessage, jsonBody } from '@/lib/client';
 import { Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function TransferenciasPage() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [fromAccountId, setFromAccountId] = useState('acc-1');
+  const [fromAccountId, setFromAccountId] = useState('');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [concept, setConcept] = useState('');
@@ -21,12 +22,19 @@ export default function TransferenciasPage() {
     async function loadAccounts() {
       try {
         setLoading(true);
-        const res = await fetch('/api/accounts');
-        const data = await res.json();
-        setAccounts(data.accounts || []);
-        setTransactions(data.transactions || []);
-      } catch {
-        setErrorMsg('No se pudieron cargar las cuentas desde el Route Handler.');
+        const data = await apiFetch<{
+          accounts: BankAccount[];
+          transactions: Transaction[];
+        }>('/api/accounts');
+        setAccounts(data.accounts);
+        setTransactions(data.transactions);
+        setFromAccountId((current) =>
+          data.accounts.some((a) => a.id === current)
+            ? current
+            : data.accounts[0]?.id ?? ''
+        );
+      } catch (err) {
+        setErrorMsg(errorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -34,37 +42,45 @@ export default function TransferenciasPage() {
     loadAccounts();
   }, []);
 
+  const selectedAccount = accounts.find((a) => a.id === fromAccountId);
+  const currency = selectedAccount?.currency ?? 'USD';
+  const numericAmount = Number(amount);
+  const exceedsBalance =
+    !!selectedAccount && numericAmount > selectedAccount.balance;
+
   async function handleTransfer(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessTx(null);
-    setSubmitting(true);
 
+    if (exceedsBalance) {
+      setErrorMsg('El monto supera el saldo disponible de la cuenta seleccionada.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const res = await fetch('/api/accounts', {
+      const data = await apiFetch<{
+        transaction: Transaction;
+        accounts: BankAccount[];
+      }>('/api/accounts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        ...jsonBody({
           fromAccountId,
           recipient,
-          amount: Number(amount),
+          amount: numericAmount,
           concept,
           category,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Error al procesar la transferencia.');
-      } else {
-        setAccounts(data.accounts);
-        setTransactions((prev) => [data.transaction, ...prev]);
-        setSuccessTx(data.transaction);
-        setRecipient('');
-        setAmount('');
-        setConcept('');
-      }
-    } catch {
-      setErrorMsg('Error de red al conectar con /api/accounts.');
+      setAccounts(data.accounts);
+      setTransactions((prev) => [data.transaction, ...prev]);
+      setSuccessTx(data.transaction);
+      setRecipient('');
+      setAmount('');
+      setConcept('');
+    } catch (err) {
+      setErrorMsg(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -92,31 +108,41 @@ export default function TransferenciasPage() {
             </h2>
 
             {errorMsg && (
-              <div className="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3.5 text-sm text-rose-300">
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3.5 text-sm text-rose-300"
+              >
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
             {successTx && (
-              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+              <div
+                role="status"
+                className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200"
+              >
                 <div className="flex items-center gap-2 font-bold text-emerald-300">
                   <CheckCircle2 className="h-5 w-5" />
                   ¡Transferencia enviada con éxito!
                 </div>
                 <p className="mt-1 text-xs text-emerald-300/80">
                   Comprobante: {successTx.reference} • Destinatario:{' '}
-                  {successTx.recipientOrSender} • Monto: $
-                  {Math.abs(successTx.amount).toFixed(2)}
+                  {successTx.recipientOrSender} • Monto:{' '}
+                  {Math.abs(successTx.amount).toFixed(2)} {successTx.currency}
                 </p>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-300">
+              <label
+                htmlFor="from-account"
+                className="block text-xs font-medium text-slate-300"
+              >
                 Cuenta de Origen
               </label>
               <select
+                id="from-account"
                 value={fromAccountId}
                 onChange={(e) => setFromAccountId(e.target.value)}
                 disabled={loading}
@@ -132,12 +158,18 @@ export default function TransferenciasPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-slate-300">
+                <label
+                  htmlFor="recipient"
+                  className="block text-xs font-medium text-slate-300"
+                >
                   Beneficiario o Cuenta Destino
                 </label>
                 <input
+                  id="recipient"
                   type="text"
                   required
+                  minLength={2}
+                  maxLength={80}
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
                   placeholder="Ej. Carlos Mendoza - Banco Cuscatlán"
@@ -145,13 +177,18 @@ export default function TransferenciasPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300">
-                  Monto a Transferir (USD)
+                <label
+                  htmlFor="amount"
+                  className="block text-xs font-medium text-slate-300"
+                >
+                  Monto a Transferir ({currency})
                 </label>
                 <input
+                  id="amount"
                   type="number"
                   step="0.01"
-                  min="1"
+                  min="0.01"
+                  max="100000"
                   required
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -163,11 +200,16 @@ export default function TransferenciasPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-slate-300">
+                <label
+                  htmlFor="concept"
+                  className="block text-xs font-medium text-slate-300"
+                >
                   Concepto
                 </label>
                 <input
+                  id="concept"
                   type="text"
+                  maxLength={120}
                   value={concept}
                   onChange={(e) => setConcept(e.target.value)}
                   placeholder="Ej. Pago de consultoría UI/UX"
@@ -175,10 +217,14 @@ export default function TransferenciasPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300">
+                <label
+                  htmlFor="category"
+                  className="block text-xs font-medium text-slate-300"
+                >
                   Categoría Contable
                 </label>
                 <select
+                  id="category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
@@ -193,7 +239,7 @@ export default function TransferenciasPage() {
 
             <button
               type="submit"
-              disabled={submitting || loading}
+              disabled={submitting || loading || !fromAccountId}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-50"
             >
               {submitting ? (
@@ -233,7 +279,8 @@ export default function TransferenciasPage() {
                       tx.amount > 0 ? 'text-emerald-400' : 'text-slate-200'
                     }`}
                   >
-                    {tx.amount > 0 ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
+                    {tx.amount > 0 ? '+' : '-'}
+                    {Math.abs(tx.amount).toFixed(2)} {tx.currency}
                   </span>
                 </div>
               ))}

@@ -60,9 +60,21 @@ export interface SavingsGoal {
   iconName: string;
 }
 
+/** Tarjeta expuesta por la API: nunca incluye el CVV. */
+export type PublicBankCard = Omit<BankCard, 'cvv'>;
+
 export interface ExchangeRatesResponse {
   base: string;
   updatedAt: string;
   source: string;
+  /** true cuando se usan las tasas locales de contingencia */
+  fallback: boolean;
   rates: Record<string, number>;
+}
+
+/** Cuerpo estándar de error de todos los endpoints. */
+export interface ApiErrorBody {
+  error: string;
+  code: string;
+  details?: Record<string, unknown>;
 }

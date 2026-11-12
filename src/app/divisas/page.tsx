@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { ExchangeRatesResponse } from '@/types/banking';
-import { RefreshCw, ArrowRightLeft, Globe } from 'lucide-react';
+import { apiFetch, errorMessage } from '@/lib/client';
+import { RefreshCw, ArrowRightLeft, Globe, AlertTriangle } from 'lucide-react';
 
 export default function DivisasPage() {
   const [fxData, setFxData] = useState<ExchangeRatesResponse | null>(null);
@@ -15,12 +16,10 @@ export default function DivisasPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/fx');
-      if (!res.ok) throw new Error('Error al consultar Route Handler /api/fx');
-      const data: ExchangeRatesResponse = await res.json();
+      const data = await apiFetch<ExchangeRatesResponse>('/api/fx');
       setFxData(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -30,7 +29,8 @@ export default function DivisasPage() {
     fetchRates();
   }, []);
 
-  const numericUsd = parseFloat(usdAmount) || 0;
+  const parsedUsd = parseFloat(usdAmount);
+  const numericUsd = Number.isFinite(parsedUsd) && parsedUsd > 0 ? parsedUsd : 0;
   const selectedRate = fxData?.rates?.[targetCurrency] ?? 1;
   const convertedValue = numericUsd * selectedRate;
 
@@ -57,8 +57,22 @@ export default function DivisasPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300"
+        >
           {error}
+        </div>
+      )}
+
+      {fxData?.fallback && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          No se pudo consultar el proveedor externo. Se muestran tasas de
+          respaldo, que pueden no estar actualizadas.
         </div>
       )}
 
@@ -72,11 +86,16 @@ export default function DivisasPage() {
 
           <div className="mt-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400">
+              <label
+                htmlFor="usd-amount"
+                className="block text-xs font-medium text-slate-400"
+              >
                 Monto en Dólares Estadounidenses (USD)
               </label>
               <input
+                id="usd-amount"
                 type="number"
+                min="0"
                 value={usdAmount}
                 onChange={(e) => setUsdAmount(e.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-lg font-bold text-white focus:border-emerald-500 focus:outline-none"
@@ -84,10 +103,14 @@ export default function DivisasPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400">
+              <label
+                htmlFor="target-currency"
+                className="block text-xs font-medium text-slate-400"
+              >
                 Moneda de Destino
               </label>
               <select
+                id="target-currency"
                 value={targetCurrency}
                 onChange={(e) => setTargetCurrency(e.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm font-semibold text-white focus:border-emerald-500 focus:outline-none"
@@ -113,7 +136,7 @@ export default function DivisasPage() {
                 <span className="text-emerald-400">{targetCurrency}</span>
               </p>
               <p className="mt-2 text-[11px] text-slate-400">
-                1 USD = {selectedRate} {targetCurrency} • Sin comisiones ocultas
+                1 USD = {selectedRate} {targetCurrency} • Tasa referencial, sin comisiones
               </p>
             </div>
           </div>
@@ -126,8 +149,13 @@ export default function DivisasPage() {
               <Globe className="h-5 w-5 text-indigo-400" />
               Cotizaciones Oficiales respecto al USD
             </h2>
-            <span className="text-xs text-slate-400">
+            <span className="text-right text-xs text-slate-400">
               {fxData?.source || 'Cargando fuente...'}
+              {fxData && (
+                <span className="block text-[10px] text-slate-500">
+                  Actualizado: {fxData.updatedAt}
+                </span>
+              )}
             </span>
           </div>
 

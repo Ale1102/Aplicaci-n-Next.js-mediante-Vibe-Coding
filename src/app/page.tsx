@@ -1,11 +1,15 @@
-import { INITIAL_ACCOUNTS, INITIAL_TRANSACTIONS } from '@/lib/mock-data';
 import DashboardClient from '@/components/DashboardClient';
+import { store } from '@/lib/store';
+import { getFxRates } from '@/lib/fx';
+
+// Los datos cambian con cada transferencia, por eso no se prerenderiza de forma estática
+export const dynamic = 'force-dynamic';
 
 // Server Component principal (Ruta 1: /)
 export default async function HomePage() {
-  // En un Server Component podemos cargar datos directamente en el servidor
-  const accounts = INITIAL_ACCOUNTS;
-  const transactions = INITIAL_TRANSACTIONS;
+  // Se lee el mismo almacén que usan los Route Handlers: lo que transfieras
+  // en /transferencias se refleja aquí al volver al panel.
+  const fx = await getFxRates();
 
   return (
     <div className="space-y-6">
@@ -19,13 +23,15 @@ export default async function HomePage() {
           </h1>
         </div>
         <p className="text-xs text-slate-400">
-          Última sincronización: Noviembre 2026
+          Datos al {new Date().toISOString().slice(0, 10)}
         </p>
       </div>
 
       <DashboardClient
-        initialAccounts={accounts}
-        initialTransactions={transactions}
+        initialAccounts={store.accounts}
+        initialTransactions={store.transactions}
+        rates={fx.rates}
+        ratesAreFallback={fx.fallback}
       />
     </div>
   );

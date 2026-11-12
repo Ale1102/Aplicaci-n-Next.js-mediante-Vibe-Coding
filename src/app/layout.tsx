@@ -14,7 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="dark">
+    // suppressHydrationWarning: algunas extensiones del navegador añaden atributos
+    // a <html> antes de hidratar; solo afecta a los atributos de esta etiqueta.
+    <html lang="es" className="dark" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
         <Navbar />
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
